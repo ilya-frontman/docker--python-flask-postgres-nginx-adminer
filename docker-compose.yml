@@ -1,0 +1,51 @@
+version: "3"
+
+services:
+
+  pgdb:
+    restart: always
+    image: postgres:alpine
+    environment:
+    - POSTGRES_USER=$DB_USER
+    - POSTGRES_PASSWORD=$DB_PASSWORD
+    - POSTGRES_DB=$DB_NAME
+    #ports:
+    #- $DB_PORT:$DB_PORT
+    volumes:
+    - ./db/data:/var/lib/postgresql/data
+    command: -p $DB_PORT     
+  
+  flask_app:
+    restart: always
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - pgdb
+    environment:
+      - DB_USER
+      - DB_PASSWORD
+      - DB_NAME
+    volumes:
+      - ./app/src:/usr/src/app
+
+  nginx_web:
+    restart: always
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - flask_app
+      - pgdb
+    ports:
+      - $NGINX_PORT:$NGINX_PORT
+
+  adm:
+    restart: always
+    image: adminer:latest
+    depends_on:
+      - nginx_web
+    ports:
+      - $ADM_PORT:$ADM_PORT
+    environment:
+      - ADMINER_DEFAULT_SERVER=pgdb
